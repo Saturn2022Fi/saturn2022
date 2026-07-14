@@ -1,0 +1,9 @@
+contracts/out/
+contracts/cache/
+contracts/lib/
+node_modules/
+crank/crank.log
+.deploy/
+*.key
+.env
+.env.*
