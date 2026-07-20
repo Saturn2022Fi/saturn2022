@@ -85,3 +85,25 @@ export function table(rows) {
   const line = (cells) => cells.map((c, i) => String(c ?? "").padEnd(w[i])).join("  ");
   return [line(keys), line(w.map((n) => "-".repeat(n))), ...rows.map((r) => line(keys.map((k) => r[k])))].join("\n");
 }
+
+/**
+ * eth_getLogs over a range the endpoint will not serve in one piece.
+ *
+ * Public endpoints cap a response at ten thousand logs, and a busy hour on this
+ * chain is well past that, so the range is halved until each piece fits. The
+ * cap is a response limit rather than a range limit, so splitting is the only
+ * way through it.
+ */
+export async function getLogsChunked(filter, from, to, depth = 0) {
+  try {
+    return await rpc("eth_getLogs", [{ ...filter, fromBlock: hex(from), toBlock: hex(to) }]);
+  } catch (e) {
+    if (!/exceeds limit|too many|response size|timed out|timeout/i.test(e.message) || to - from < 2 || depth > 24) throw e;
+    const mid = Math.floor((from + to) / 2);
+    const [a, b] = await Promise.all([
+      getLogsChunked(filter, from, mid, depth + 1),
+      getLogsChunked(filter, mid + 1, to, depth + 1),
+    ]);
+    return a.concat(b);
+  }
+}
