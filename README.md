@@ -128,3 +128,33 @@ Feeds update 24/5 and follow market hours, which is why a week of feed history
 carries a gap of two days and change. They publish on deviation rather than on a
 heartbeat, so the interval between updates is anything from a minute to two
 days, and a quiet feed means a still price rather than a broken one.
+
+## Where a stock purchase actually goes
+
+Not to a pool. Quotes are signed off chain by market makers holding real
+inventory, and the chain settles them. Robinhood's ecosystem page calls the
+venue a "PropAMM driven spot exchange"; decoded from live fills, that means a
+signed quote, a maker vault, and a five basis point fee.
+
+```
+$ node scripts/03-how-stocks-trade.mjs
+
+fills            761 in 168 minutes
+distinct takers  62
+notional         $60,448      (about $519,000 a day at this rate)
+
+route          fills  notional
+USDG -> COIN   68     $2,183
+USDG -> NVDA   43     $5,782
+USDG -> SPCX   29     $30,147
+...
+```
+
+Two things stand out. Sixty-two takers, so this is a rail that programs use
+rather than people. And half the money through it is SpaceX, the one private
+company on the chain and the only asset here that cannot be bought anywhere
+else.
+
+Five basis points is worth holding next to the 1% tier the stock pools charge.
+Thin pools are not the constraint they look like, if you are willing to settle
+against a signed quote instead.
