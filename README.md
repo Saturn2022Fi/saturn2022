@@ -158,3 +158,26 @@ else.
 Five basis points is worth holding next to the 1% tier the stock pools charge.
 Thin pools are not the constraint they look like, if you are willing to settle
 against a signed quote instead.
+
+## What the chain costs
+
+```
+$ node scripts/01-chain.mjs
+
+block time    0.1007 s   (9.9 blocks per second)
+median fee    $0.0078
+reverted      7% to 13% of transactions, depending on the sample
+```
+
+Ten blocks a second invites designs that tick, so it is worth writing down what
+ticking costs before building one:
+
+| a transaction | per day |
+|---|---|
+| every block | $6,686 |
+| once a second | $673 |
+| once a minute | $11.22 |
+| once an hour | $0.19 |
+
+Blocks are fast. Gas is not free. A design that needs a heartbeat needs a budget,
+and a design that computes its state from the block number instead needs neither.
