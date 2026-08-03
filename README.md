@@ -181,3 +181,54 @@ ticking costs before building one:
 
 Blocks are fast. Gas is not free. A design that needs a heartbeat needs a budget,
 and a design that computes its state from the block number instead needs neither.
+
+## What it costs to pay every holder
+
+Handing assets to holders by sending them is the obvious approach, and its cost
+grows with the number of holders while the payout does not. Point the script at
+any contract that does it and read the receipts of a real round:
+
+```
+$ node scripts/04-cost-of-pushing.mjs 0x<distributor> 40000
+
+window               40,000 blocks (~67 min)
+transfers sent       56,592
+distinct recipients  3,139
+distinct assets      19
+transactions         132
+event logs written   115,090
+gas burned           1,171,714,619
+cost                 $74.59
+
+per recipient reached : $0.02376
+per year              : $583,996
+```
+
+Nearly six hundred thousand dollars a year, spent on the act of handing over,
+by one contract. Double the holders and it doubles. The payout does not.
+
+`contracts/src/PayoutToken.sol` does the same job with one storage write:
+
+```
+$ node scripts/05-cost-of-not-pushing.mjs
+
+action                  gas     cost
+pay every holder, once  9,574   $0.000606
+one holder claims       71,022  $0.004496
+one holder transfers    47,237  $0.002990
+
+holders  gas to pay them all
+100      9,577
+5,100    9,577
+10,000   9,577
+```
+
+The same figure at every crowd size, because the payout writes a number instead
+of walking a list. A holder pays half a cent to collect, once, whenever they
+like, and that one collection settles every round that happened in between.
+
+One asset, deliberately. An earlier version let a project pay out any number of
+assets and kept a running total for each. Paying stayed cheap, but every holder
+then carried the whole list on every transfer: with eighteen assets a transfer
+cost 1,557,692 gas against 97,167 with one. The cost had not gone away, it had
+moved onto the people the token is for.
