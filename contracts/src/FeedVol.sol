@@ -42,6 +42,17 @@ library FeedVol {
     int256 internal constant ONE = 1e18;
     int256 internal constant YEAR = 31_557_600; // 365.25 days
 
+    /// What the passage estimator reads low by, and the constant that removes it.
+    ///
+    /// Against the realized volatility computed from the same rounds, across
+    /// eighteen feeds and about five thousand three hundred rounds, the raw
+    /// estimate came in at 0.915 of the target, steadily rather than randomly:
+    /// the coefficient of variation across assets was 3.8% over a full window,
+    /// on assets whose volatility ranged from 21% to 95%. A bias that stable is
+    /// a constant, so it is divided out here and named rather than left in the
+    /// answer for a caller to discover. The measurement is `scripts/09-validate.mjs`.
+    int256 internal constant CALIBRATION = 1_092_896_174_863_388;  // 1e18 / 0.915, scaled
+
     /// The window the calibration was measured at.
     ///
     /// Shorter windows are not merely noisier, they are differently biased: at
