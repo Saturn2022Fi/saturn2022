@@ -101,7 +101,7 @@ library FeedVol {
         // sigma = d * sqrt(YEAR / meanDt), then the measured bias divided out
         int256 ratio = (YEAR * ONE * ONE) / meanDt;
         int256 raw = (deviation * Gauss.sqrtFix(ratio)) / ONE;
-        return raw;
+        return (raw * CALIBRATION) / (ONE / 1000);
     }
 
     /// The reading a market should use: the calibrated estimate over the window
