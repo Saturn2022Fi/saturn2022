@@ -84,6 +84,16 @@ contract OptionHouse {
         emit Listed(id, stock, feed);
     }
 
+    /// The markup is the one number here a person chooses, so it is bounded and
+    /// public rather than trusted. Raising it can only make an option dearer,
+    /// which costs a buyer nothing they did not agree to at the moment they paid.
+    function setMarkup(uint32 market, uint16 markupBps) external {
+        if (msg.sender != lister) revert NotLister();
+        if (markupBps > MAX_MARKUP_BPS) revert MarkupTooHigh();
+        markets[market].markupBps = markupBps;
+        emit MarkupSet(market, markupBps);
+    }
+
     /// Escrow one full share of the market's stock, name a strike and expiry.
     function write(uint32 market, uint96 strike, uint40 expiry) external returns (uint256 id) {
         if (expiry <= block.timestamp) revert Expired();
