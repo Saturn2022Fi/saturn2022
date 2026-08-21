@@ -232,3 +232,98 @@ assets and kept a running total for each. Paying stayed cheap, but every holder
 then carried the whole list on every transfer: with eighteen assets a transfer
 cost 1,557,692 gas against 97,167 with one. The cost had not gone away, it had
 moved onto the people the token is for.
+
+## What got built on top of all this
+
+**An options market on real stocks where no one quotes a price.** One contract,
+seventeen markets, live on mainnet:
+
+```
+OptionHouse   0xea09f07D7F6FBc61E83e342aB586Ed2147f2d63d   write / buy / settle
+OptionLens    0x87A7593659E08b02098d4c3D8F3c236D0414dA81   free quotes, one eth_call
+sSPCX vault   0xBB13E630506788162083356530e79724224176f4   pooled SpaceX covered calls
+sNVDA vault   0x166628Eba97D992d9f39604AD6Fb6e095a9aD04f   pooled NVIDIA covered calls
+```
+
+Spot comes from each stock's Chainlink feed. Volatility comes from that same
+feed's update times, using the estimator above. The premium is Black-Scholes,
+computed in fixed point inside the transaction that buys it. Writing a call
+escrows the whole share, so there is no margin, no liquidation, and no thin pool
+an attacker can lean on: the only oracle read that moves money is settlement,
+and it is pinned to the round that covered expiry rather than read at call time.
+
+Anyone can read the board without an account:
+
+```
+cast call 0x87A7593659E08b02098d4c3D8F3c236D0414dA81 \
+  "quote(address,int256,uint256,uint256)(int256,int256,int256,int256)" \
+  0xB265810950ba6c5C0Ff821c9963014a56fD8Bffb 5395404172112830 11000 30 \
+  --rpc-url https://rpc.mainnet.chain.robinhood.com
+```
+
+That answers with the price of a 30-day call on SpaceX, an option that exists on
+no exchange anywhere, because SpaceX is private.
+
+### Is the volatility any good
+
+The estimator reads no prices, so the honest test is against the realized
+volatility computed from the very same rounds. On SpaceX, over its last 300:
+
+| | |
+|---|---|
+| realized, from the prices | 69% |
+| this, from the timestamps | 69% |
+| ratio | 1.003 |
+
+Across all eighteen feeds, spanning 21% to 95% realized volatility, the ratio
+averages 1.000 with a spread of 3.8%, and the worst asset sits at 0.918. The
+spread is the number that matters more than the average: a bias that is the same
+size everywhere is a constant to divide out, and one that wanders is not.
+`scripts/08-dataset.mjs` then `scripts/09-validate.mjs` produce all of it.
+
+The estimator one would actually reach for, weighting each squared return by its
+own interval, was off by more than 2x on 17 of those 18 feeds and by 3.3x on
+average. Deviation feeds sample when the price moves, so busy stretches
+over-represent themselves, and interval-weighting amplifies exactly them.
+
+Two things behind those numbers cost real accuracy:
+
+**The window has to be long.** At 24 rounds the ratio wandered between 0.72 and
+0.93. At 290 the spread is 3.8%. A handful of passages can be one quiet
+afternoon or one earnings day; the count, not the elapsed time, is what fixes
+that. On chain a 290-round walk costs 1,465,419 gas, about nine cents, and only
+on the transaction that buys.
+
+**Market hours are not quiet hours.** These feeds follow the underlying's
+sessions, so a weekend inside a window is fifty hours with no rounds in it.
+Counted as calm it reported a calm asset, and on one feed that cost a third of
+the figure. Gaps are charged at six hours and no more.
+
+**What we predicted and got wrong.** A round appears once a move has *passed*
+the threshold, so every observed move should be the threshold plus an overshoot,
+and a low quantile should read the barrier better than the median does. It does
+not. Using the 10th percentile made the spread worse, 15.0% against 5.2%. The
+median is the better read and we have no clean account of why.
+
+### What this cannot do yet
+
+Volatility error does not travel to option prices one for one. It amplifies with
+distance from the money, because an out-of-the-money option is almost entirely a
+bet on movement:
+
+| strike | 9% volatility error becomes |
+|---|---|
+| at the money | 9% price error |
+| 10% out | 21% |
+| 20% out | 37% |
+
+So the numbers above support at-the-money and near-the-money writing. Deep
+out-of-the-money quotes are published because the model produces them, and they
+carry that amplification; the markup on each market, a public number on the
+contract, is what stands between a writer and selling too cheap. It is set at
+30% and the ceiling is 100%.
+
+And an option is priced on volatility to come, while this estimator measures
+volatility that has been. Implied volatility carries a risk premium over
+realized for exactly that reason, so a gap between this and a quoted options
+market is expected and is not error. It is also why the markup is not optional.
