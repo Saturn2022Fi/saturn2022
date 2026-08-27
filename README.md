@@ -327,3 +327,28 @@ And an option is priced on volatility to come, while this estimator measures
 volatility that has been. Implied volatility carries a risk premium over
 realized for exactly that reason, so a gap between this and a quoted options
 market is expected and is not error. It is also why the markup is not optional.
+
+## Things that turned out not to be true
+
+Kept because a measurement that killed an idea is worth as much as one that
+started it.
+
+**Dividends are not leaking from pool liquidity.** A dividend raises what a
+token is worth without touching the pool's price, which looks like free money
+for whoever arbitrages it first. It is not: AAPL's dividend was 0.0566% and the
+pool's fee is 0.3%, so there was nothing to take. The pool saw six swaps in the
+half hour around it, all sells, no burst.
+
+**The quote rail is not a hidden market.** It settles about half a million
+dollars a day across sixty-two addresses. Real, useful, and small.
+
+## Layout
+
+```
+scripts/     measurements, plain Node, no dependencies
+contracts/   the libraries, the option house and the vaults, Foundry, 61 tests
+```
+
+Addresses in `scripts/tokens.mjs` come from the on-chain registry. Dozens of
+impostor tokens share these tickers; an address that did not come from the
+registry is not the asset it claims to be.
