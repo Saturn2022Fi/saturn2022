@@ -142,6 +142,17 @@ contract VaultTest is Test {
         assertEq(vault.claimable(alice), aliceBefore, "and take nothing from the earlier ones");
     }
 
+    function test_refuses_to_sell_for_pennies() public {
+        _deposits();
+        // Deep out of the money and short-dated: the model prices this call at
+        // fractions of a cent on a $214 stock. The backtest found every losing
+        // write looks exactly like this, so the vault must refuse it.
+        vm.expectRevert(CoveredCallVault.PremiumTooThin.selector);
+        vault.write(500e8, uint40(block.timestamp + 1 days));
+        assertEq(vault.free(), 4e18, "the share never left");
+        assertEq(vault.openCount(), 0);
+    }
+
     function test_only_keeper_writes() public {
         _deposits();
         vm.prank(alice);
