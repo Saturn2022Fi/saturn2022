@@ -61,6 +61,7 @@ contract CoveredCallVault is ERC20 {
     error NothingToDeposit();
     error NotEnoughFree();
     error TooManyOpen();
+    error PremiumTooThin();
 
     constructor(OptionHouse house_, uint32 marketId_, string memory name_, string memory symbol_)
         ERC20(name_, symbol_)
@@ -124,12 +125,30 @@ contract CoveredCallVault is ERC20 {
 
     // --- the keeper's two verbs ------------------------------------------
 
+    /// The floor under any premium this vault will accept, in bps of spot.
+    ///
+    /// Backtested over every feed's history (scripts/11-backtest.mjs), the only
+    /// writes that lose money are the ones sold for almost nothing: a quiet
+    /// feed reads as low volatility, the premium comes out at pennies, and one
+    /// rally hands over more upside than dozens of those pennies covered.
+    /// Refusing them removed the entire loss pattern and multiplied the net
+    /// per write. So the refusal is written here, where a depositor can read
+    /// it, rather than left to the keeper's judgement.
+    uint256 public constant MIN_PREMIUM_BPS = 10;
+
     /// Write one call against a free share and put it on the board.
     function write(uint96 strike, uint40 expiry) external returns (uint256 id) {
         if (msg.sender != keeper) revert NotKeeper();
         if (openSeries.length >= 64) revert TooManyOpen();
         stock.forceApprove(address(house), 1e18);
         id = house.write(marketId, strike, expiry);
+
+        // The house quotes in the same units it charges, spot comes from the
+        // feed at 1e8; both sides land on premium-per-spot in bps.
+        (uint256 premium,) = house.quote(id);
+        (, int256 spot,,,) = IAggregator(feed).latestRoundData();
+        if (premium * 10_000 < (uint256(spot) / 100) * MIN_PREMIUM_BPS) revert PremiumTooThin();
+
         openSeries.push(id);
         emit Wrote(id, strike, expiry);
     }
