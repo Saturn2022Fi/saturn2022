@@ -12,8 +12,8 @@ Deployed on Robinhood Chain mainnet (4663):
 |---|---|
 | OptionHouse (17 markets) | `0xea09f07D7F6FBc61E83e342aB586Ed2147f2d63d` |
 | OptionLens (free quotes) | `0x87A7593659E08b02098d4c3D8F3c236D0414dA81` |
-| sSPCX vault | `0xBB13E630506788162083356530e79724224176f4` |
-| sNVDA vault | `0x166628Eba97D992d9f39604AD6Fb6e095a9aD04f` |
+| sSPCX vault | `0xc79Aa3ac7Ef7905608fF42153768CAE194D2092B` |
+| sNVDA vault | `0x379203E346E66ddFB2c69208699904846aa2553F` |
 
 ## The pieces
 
