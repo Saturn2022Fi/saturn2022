@@ -19,7 +19,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract LiveForkTest is Test {
     OptionHouse constant HOUSE = OptionHouse(0xea09f07D7F6FBc61E83e342aB586Ed2147f2d63d);
     OptionLens constant LENS = OptionLens(0x87A7593659E08b02098d4c3D8F3c236D0414dA81);
-    CoveredCallVault constant VAULT = CoveredCallVault(0xBB13E630506788162083356530e79724224176f4);
+    CoveredCallVault constant VAULT = CoveredCallVault(0xc79Aa3ac7Ef7905608fF42153768CAE194D2092B);
 
     IERC20 constant SPCX = IERC20(0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa);
     IERC20 constant USDG = IERC20(0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168);
@@ -71,11 +71,14 @@ contract LiveForkTest is Test {
 
     /// Deposit, pool, write, buy, settle, claim, withdraw. The real cycle.
     function test_the_whole_cycle_on_real_assets() public onlyFork {
-        // 1. two people pool their SpaceX
+        // 1. two people pool their SpaceX. The vault is live and may already
+        //    hold other people's shares and options, so every check is a delta.
+        uint256 supply0 = VAULT.totalSupply();
+        uint256 free0 = VAULT.free();
         vm.prank(alice); VAULT.deposit(3e18);
         vm.prank(bob); VAULT.deposit(1e18);
-        assertEq(VAULT.totalSupply(), 4e18, "four shares pooled");
-        assertEq(VAULT.free(), 4e18);
+        assertEq(VAULT.totalSupply() - supply0, 4e18, "four shares pooled");
+        assertEq(VAULT.free() - free0, 4e18);
 
         // 2. the vault writes one call, 10% out of the money, 30 days out
         (, int256 spot,,,) = IAggregator(FEED).latestRoundData();
@@ -83,7 +86,8 @@ contract LiveForkTest is Test {
         uint40 expiry = uint40(block.timestamp + 30 days);
         vm.prank(VAULT.keeper());
         uint256 id = VAULT.write(strike, expiry);
-        assertEq(VAULT.free(), 3e18, "one share left as escrow");
+        uint256 index = VAULT.openCount() - 1;
+        assertEq(VAULT.free() - free0, 3e18, "one share left as escrow");
 
         // 3. someone buys it at the model price
         (uint256 premium, int256 vol) = HOUSE.quote(id);
@@ -101,7 +105,8 @@ contract LiveForkTest is Test {
         uint256 a = VAULT.claimable(alice);
         uint256 b = VAULT.claimable(bob);
         assertApproxEqRel(a, b * 3, 0.0001e18, "split by what each put in");
-        assertApproxEqAbs(a + b, premium, 10);
+        assertLe(a + b, premium + 10, "nothing paid out beyond the premium");
+        assertGt(a, 0);
 
         // 5. alice takes hers
         vm.prank(alice); VAULT.claim();
@@ -110,9 +115,10 @@ contract LiveForkTest is Test {
         // 6. expiry. find the round that covered it, settle against that one.
         vm.warp(uint256(expiry) + 1 hours);
         uint80 atExpiry = _roundAtOrBefore(FEED, expiry);
-        VAULT.settle(0, atExpiry);
-        assertEq(VAULT.openCount(), 0, "the option is closed");
-        assertGe(VAULT.free(), 3e18, "escrow came home, less any exercise");
+        uint256 openBefore = VAULT.openCount();
+        VAULT.settle(index, atExpiry);
+        assertEq(VAULT.openCount(), openBefore - 1, "the option is closed");
+        assertGe(VAULT.free(), free0 + 3e18, "escrow came home, less any exercise");
         emit log_named_uint("shares back in the vault", VAULT.free());
 
         // 7. bob leaves with his stock.

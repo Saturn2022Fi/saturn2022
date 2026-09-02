@@ -15,6 +15,9 @@ Deployed on Robinhood Chain mainnet (4663):
 | sSPCX vault | `0xc79Aa3ac7Ef7905608fF42153768CAE194D2092B` |
 | sNVDA vault | `0x379203E346E66ddFB2c69208699904846aa2553F` |
 
+The other fifteen markets each have a vault too; the full list is the `VAULTS`
+line in `../crank/README.md`.
+
 ## The pieces
 
 `Gauss.sol`: exp, ln, sqrt and the normal CDF in 1e18 fixed point. The CDF is

@@ -118,7 +118,7 @@ Everything is plain Node with no dependencies, against public endpoints, with no
 
     rpc  https://rpc.mainnet.chain.robinhood.com   (chain id 4663)
 
-    cd hoodchain
+    git clone https://github.com/Saturn2022Fi/saturn2022-tools && cd saturn2022-tools
     node scripts/08-dataset.mjs 300     # pulls round history, writes out/rounds.json
     node scripts/09-validate.mjs 6      # Table 1, with intervals capped at 6 hours
 

@@ -245,6 +245,9 @@ sSPCX vault   0xc79Aa3ac7Ef7905608fF42153768CAE194D2092B   pooled SpaceX covered
 sNVDA vault   0x379203E346E66ddFB2c69208699904846aa2553F   pooled NVIDIA covered calls
 ```
 
+Every market has a vault of its own, seventeen in all; the full list is the
+`VAULTS` line in `crank/README.md`, and the crank runs over all of them.
+
 Spot comes from each stock's Chainlink feed. Volatility comes from that same
 feed's update times, using the estimator above. The premium is Black-Scholes,
 computed in fixed point inside the transaction that buys it. Writing a call
@@ -346,7 +349,7 @@ dollars a day across sixty-two addresses. Real, useful, and small.
 
 ```
 scripts/     measurements, plain Node, no dependencies
-contracts/   the libraries, the option house and the vaults, Foundry, 61 tests
+contracts/   the libraries, the option house and the vaults, Foundry, 62 tests
 ```
 
 Addresses in `scripts/tokens.mjs` come from the on-chain registry. Dozens of
