@@ -90,15 +90,26 @@ library FeedVol {
         for (uint80 i = 1; i <= lookback; i++) {
             (,,, uint256 t,) = IAggregator(feed).getRoundData(latest - i);
             if (t == 0 || t >= tPrev) break;          // history ends, or is not ordered
-            uint256 gap = tPrev - t;
-            active += gap > MAX_ACTIVE_GAP ? MAX_ACTIVE_GAP : gap;
+            active += cap(tPrev - t);
             counted++;
             tPrev = t;
         }
-        if (counted == 0 || active == 0) revert TooFewRounds();
+        return fromMean(active, counted, deviation);
+    }
 
+    /// A gap charged for the time the market was open: anything longer than
+    /// MAX_ACTIVE_GAP was a closed market, and counts as that much.
+    function cap(uint256 gap) internal pure returns (uint256) {
+        return gap > MAX_ACTIVE_GAP ? MAX_ACTIVE_GAP : gap;
+    }
+
+    /// The estimate from the sum of `counted` capped gaps:
+    /// sigma = d * sqrt(YEAR / meanDt), then the measured bias divided out.
+    /// Pure, so the same number comes out whether the gaps were just walked
+    /// off the feed or kept in storage and extended one round at a time.
+    function fromMean(uint256 active, uint256 counted, int256 deviation) internal pure returns (int256) {
+        if (counted == 0 || active == 0) revert TooFewRounds();
         int256 meanDt = int256(active) * ONE / int256(counted);
-        // sigma = d * sqrt(YEAR / meanDt), then the measured bias divided out
         int256 ratio = (YEAR * ONE * ONE) / meanDt;
         int256 raw = (deviation * Gauss.sqrtFix(ratio)) / ONE;
         return (raw * CALIBRATION) / (ONE / 1000);

@@ -10,10 +10,10 @@ Deployed on Robinhood Chain mainnet (4663):
 
 | contract | address |
 |---|---|
-| OptionHouse (17 markets) | `0xea09f07D7F6FBc61E83e342aB586Ed2147f2d63d` |
+| OptionHouse (17 markets) | `0xd8E48293DBfc9452F6c60850ebdE555af8d9E9Da` |
 | OptionLens (free quotes) | `0x87A7593659E08b02098d4c3D8F3c236D0414dA81` |
-| sSPCX vault | `0xc79Aa3ac7Ef7905608fF42153768CAE194D2092B` |
-| sNVDA vault | `0x379203E346E66ddFB2c69208699904846aa2553F` |
+| sSPCX vault | `0x7207EBc7493F66f62166fb951F14bB333C06297C` |
+| sNVDA vault | `0x2Fbd30388365e1fD540BfE50CaF9cd995f068978` |
 
 The other fifteen markets each have a vault too; the full list is the `VAULTS`
 line in `../crank/README.md`.

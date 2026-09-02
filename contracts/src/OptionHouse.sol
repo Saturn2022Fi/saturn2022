@@ -4,8 +4,9 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {BlackScholes} from "./BlackScholes.sol";
-import {FeedVol, IAggregator} from "./FeedVol.sol";
+import {IAggregator} from "./FeedVol.sol";
 import {HoodStock} from "./HoodStock.sol";
+import {VolRing} from "./VolRing.sol";
 
 /// Options on every stock on the chain, out of one contract.
 ///
@@ -16,12 +17,17 @@ import {HoodStock} from "./HoodStock.sol";
 /// liquidation, and no thin-pool oracle to lean on. The one read that moves
 /// money is settlement, and pushing that means pushing Chainlink itself.
 ///
+/// The cadence is kept per market as a ring of the feed's recent update gaps
+/// (VolRing), caught up with the rounds published since the last look, so a
+/// purchase prices over the feed's whole window without re-reading it.
+///
 /// Markets are listed by the deployer, because a listing binds a stock to a
 /// feed and a wrong binding prices one company's options off another's chart.
 /// Everything after listing is permissionless: writing, buying, settling.
 contract OptionHouse {
     using SafeERC20 for IERC20;
     using HoodStock for address;
+    using VolRing for VolRing.State;
 
     struct Market {
         address stock;
@@ -48,6 +54,7 @@ contract OptionHouse {
     uint16 public constant MAX_MARKUP_BPS = 10_000;
     Market[] public markets;
     Series[] public series;
+    mapping(uint32 => VolRing.State) internal rings;
 
     event Listed(uint32 indexed market, address stock, address feed);
     event Written(uint256 indexed id, uint32 indexed market, uint96 strike, uint40 expiry);
@@ -94,9 +101,22 @@ contract OptionHouse {
         emit MarkupSet(market, markupBps);
     }
 
+    /// Catch a market's volatility window up to the feed's latest round.
+    /// Anyone may; write and buy do it on their own way through.
+    function sync(uint32 market) public {
+        rings[market].sync(markets[market].feed);
+    }
+
+    /// The volatility a market prices at right now, 1e18, over the rounds
+    /// synced so far.
+    function vol(uint32 market) external view returns (int256) {
+        return rings[market].sigma(int256(markets[market].deviation));
+    }
+
     /// Escrow one full share of the market's stock, name a strike and expiry.
     function write(uint32 market, uint96 strike, uint40 expiry) external returns (uint256 id) {
         if (expiry <= block.timestamp) revert Expired();
+        sync(market);
         Market memory m = markets[market];
         m.stock.requireMovable();
         IERC20(m.stock).safeTransferFrom(msg.sender, address(this), 1e18);
@@ -113,7 +133,7 @@ contract OptionHouse {
         Market memory m = markets[s.market];
 
         (, int256 spot,,,) = IAggregator(m.feed).latestRoundData();
-        vol = FeedVol.sigma(m.feed, int256(m.deviation));
+        vol = rings[s.market].sigma(int256(m.deviation));
         int256 T = int256(uint256(s.expiry) - block.timestamp) * 1e18 / 31_557_600;
         (int256 call,) = BlackScholes.price(
             spot * 1e10, int256(uint256(s.strike)) * 1e10, T, vol
@@ -129,10 +149,13 @@ contract OptionHouse {
     }
 
     /// Pay the model price, own the option. The premium is the writer's now.
+    /// The window is caught up first, so the price is over every round the
+    /// feed has published by this moment.
     function buy(uint256 id) external {
         Series storage s = series[id];
         if (s.buyer != address(0)) revert AlreadySold();
         if (block.timestamp >= s.expiry) revert Expired();
+        sync(s.market);
         (uint256 premium, int256 vol) = quote(id);
         s.buyer = msg.sender;
         usdg.safeTransferFrom(msg.sender, s.writer, premium);
