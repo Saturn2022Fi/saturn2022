@@ -61,6 +61,7 @@ contract OptionHouse {
     event Bought(uint256 indexed id, address buyer, uint256 premium, int256 vol);
     event Settled(uint256 indexed id, int256 price, uint256 buyerPaid, uint256 writerPaid);
     event MarkupSet(uint32 indexed market, uint16 markupBps);
+    event Cancelled(uint256 indexed id);
 
     error NotLister();
     error NotYet();
@@ -70,6 +71,8 @@ contract OptionHouse {
     error BadSeries();
     error WrongRound();
     error MarkupTooHigh();
+    error PremiumAboveMax(uint256 premium, uint256 maxPremium);
+    error NotWriter();
 
     constructor(address usdg_, Market[] memory initial) {
         usdg = IERC20(usdg_);
@@ -151,15 +154,35 @@ contract OptionHouse {
     /// Pay the model price, own the option. The premium is the writer's now.
     /// The window is caught up first, so the price is over every round the
     /// feed has published by this moment.
-    function buy(uint256 id) external {
+    ///
+    /// The price is computed when the transaction lands, not when it was
+    /// sent, and spot and the window both move in between. maxPremium is the
+    /// buyer's word on what they agreed to: a premium above it reverts rather
+    /// than charging a number nobody saw.
+    function buy(uint256 id, uint256 maxPremium) external {
         Series storage s = series[id];
         if (s.buyer != address(0)) revert AlreadySold();
+        if (s.settled) revert AlreadySettled();
         if (block.timestamp >= s.expiry) revert Expired();
         sync(s.market);
         (uint256 premium, int256 vol) = quote(id);
+        if (premium > maxPremium) revert PremiumAboveMax(premium, maxPremium);
         s.buyer = msg.sender;
         usdg.safeTransferFrom(msg.sender, s.writer, premium);
         emit Bought(id, msg.sender, premium, vol);
+    }
+
+    /// Take an unsold option off the board and the escrowed share back. Only
+    /// the writer, only while nobody has paid for it: once a buyer holds the
+    /// contract the share is theirs to exercise against until expiry.
+    function cancel(uint256 id) external {
+        Series storage s = series[id];
+        if (s.writer != msg.sender) revert NotWriter();
+        if (s.buyer != address(0)) revert AlreadySold();
+        if (s.settled) revert AlreadySettled();
+        s.settled = true;
+        IERC20(markets[s.market].stock).safeTransfer(s.writer, 1e18);
+        emit Cancelled(id);
     }
 
     /// After expiry, split the escrowed share at the price that was in force AT

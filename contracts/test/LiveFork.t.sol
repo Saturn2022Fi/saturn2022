@@ -93,7 +93,7 @@ contract LiveForkTest is Test {
 
         uint256 vaultUsdgBefore = USDG.balanceOf(address(VAULT));
         vm.prank(buyer);
-        HOUSE.buy(id);
+        HOUSE.buy(id, type(uint256).max);
         assertEq(USDG.balanceOf(address(VAULT)) - vaultUsdgBefore, premium, "premium landed in the vault");
 
         // 4. the premium splits three to one, without a transfer per holder

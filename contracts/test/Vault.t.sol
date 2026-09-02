@@ -58,7 +58,7 @@ contract VaultTest is Test {
         assertEq(vault.openCount(), 1);
 
         vm.prank(buyer);
-        house.buy(id);
+        house.buy(id, type(uint256).max);
         vault.collect();
 
         // premiums split by what each put in: alice three quarters, bob one
@@ -73,7 +73,7 @@ contract VaultTest is Test {
     function test_premium_actually_pays_out() public {
         _deposits();
         uint256 id = vault.write(230e8, expiry);
-        vm.prank(buyer); house.buy(id);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
         vault.collect();
 
         uint256 due = vault.claimable(alice);
@@ -97,7 +97,7 @@ contract VaultTest is Test {
     function test_expiry_in_the_money_costs_the_vault_the_upside() public {
         _deposits();
         uint256 id = vault.write(230e8, expiry);
-        vm.prank(buyer); house.buy(id);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
 
         feed.push(280e8, expiry - 10);   // closes above the strike
         uint80 last = feed.latest();
@@ -109,12 +109,56 @@ contract VaultTest is Test {
         assertEq(vault.free(), 4e18 - taken);
         assertEq(nvda.balanceOf(buyer), taken, "the buyer took the upside");
         assertEq(vault.openCount(), 0);
+
+        // and the loss is everyone's, in proportion: alice three quarters, bob one
+        vm.prank(alice); uint256 aOut = vault.withdraw(3e18);
+        vm.prank(bob); uint256 bOut = vault.withdraw(1e18);
+        assertApproxEqAbs(aOut, 3e18 - (taken * 3) / 4, 1, "alice carries three quarters of it");
+        assertApproxEqAbs(bOut, 1e18 - taken / 4, 1, "bob one quarter");
+        assertLe(vault.free(), 1, "nothing stranded behind the last one out");
+        assertEq(vault.totalSupply(), 0);
+    }
+
+    function test_joining_after_a_loss_pays_the_pool_price() public {
+        _deposits();
+        uint256 id = vault.write(230e8, expiry);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
+        feed.push(280e8, expiry - 10);
+        vm.warp(uint256(expiry) + 1);
+        vault.settle(0, feed.latest());
+        uint256 pool = vault.assets();
+        assertLt(pool, 4e18);
+
+        // carol brings one whole share into a pool that holds less than one per share,
+        // so she gets more than one vault share: exactly her fraction of the pool.
+        address carol = address(0xCAC0);
+        nvda.mintTo(carol, 1e18);
+        vm.prank(carol); nvda.approve(address(vault), type(uint256).max);
+        vm.prank(carol); uint256 got = vault.deposit(1e18);
+        assertEq(got, 1e18 * 4e18 / pool);
+        vm.prank(carol); uint256 back = vault.withdraw(got);
+        assertApproxEqAbs(back, 1e18, 1, "and can leave with what she brought");
+    }
+
+    function test_keeper_cancels_an_unsold_write() public {
+        _deposits();
+        vault.write(230e8, expiry);
+        assertEq(vault.free(), 3e18);
+
+        vm.prank(alice);
+        vm.expectRevert(CoveredCallVault.NotKeeper.selector);
+        vault.cancel(0);
+
+        vault.cancel(0);
+        assertEq(vault.free(), 4e18, "the share is back in the pool");
+        assertEq(vault.openCount(), 0);
+        assertEq(vault.assets(), 4e18);
     }
 
     function test_expiry_out_of_the_money_returns_everything() public {
         _deposits();
         uint256 id = vault.write(230e8, expiry);
-        vm.prank(buyer); house.buy(id);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
         vault.collect();
 
         feed.push(220e8, expiry - 10);   // under the strike
@@ -129,7 +173,7 @@ contract VaultTest is Test {
     function test_joining_after_a_premium_does_not_share_in_it() public {
         _deposits();
         uint256 id = vault.write(230e8, expiry);
-        vm.prank(buyer); house.buy(id);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
         vault.collect();
         uint256 aliceBefore = vault.claimable(alice);
 
@@ -163,7 +207,7 @@ contract VaultTest is Test {
     function test_vault_shares_move_with_their_earnings() public {
         _deposits();
         uint256 id = vault.write(230e8, expiry);
-        vm.prank(buyer); house.buy(id);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
         vault.collect();
 
         uint256 aliceEarned = vault.claimable(alice);

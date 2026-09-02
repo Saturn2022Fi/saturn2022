@@ -127,7 +127,7 @@ contract VolRingTest is Test {
 
         uint256 gas = gasleft();
         vm.prank(buyer);
-        house.buy(id);
+        house.buy(id, type(uint256).max);
         gas -= gasleft();
         emit log_named_uint("gas: buy after 3 new rounds", gas);
         assertLt(gas, 400_000);

@@ -62,11 +62,60 @@ contract OptionHouseTest is Test {
         vm.prank(writer);
         id = house.write(0, strike, expiry);
         vm.prank(buyer);
-        house.buy(id);
+        house.buy(id, type(uint256).max);
     }
 
     function test_constructor_lists_markets() public view {
         assertEq(house.marketCount(), 1);
+    }
+
+    function test_buy_refuses_a_premium_above_the_cap() public {
+        vm.prank(writer);
+        uint256 id = house.write(0, 230e8, expiry);
+        (uint256 premium,) = house.quote(id);
+        assertGt(premium, 0);
+
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(OptionHouse.PremiumAboveMax.selector, premium, premium - 1));
+        house.buy(id, premium - 1);
+
+        vm.prank(buyer);
+        house.buy(id, premium);           // exactly what was quoted is enough
+        (, , address b, , ,) = house.series(id);
+        assertEq(b, buyer);
+    }
+
+    function test_writer_cancels_an_unsold_call() public {
+        vm.prank(writer);
+        uint256 id = house.write(0, 230e8, expiry);
+        assertEq(nvda.balanceOf(writer), 9e18, "one share escrowed");
+
+        vm.prank(writer);
+        house.cancel(id);
+        assertEq(nvda.balanceOf(writer), 10e18, "and it came back");
+
+        // the series is closed: nobody can buy it or settle it now
+        vm.prank(buyer);
+        vm.expectRevert(OptionHouse.AlreadySettled.selector);
+        house.buy(id, type(uint256).max);
+        vm.warp(uint256(expiry) + 1);
+        uint80 last = feed.latest();
+        vm.expectRevert(OptionHouse.AlreadySettled.selector);
+        house.settle(id, last);
+    }
+
+    function test_cancel_refuses_a_sold_call_and_a_stranger() public {
+        vm.prank(writer);
+        uint256 id = house.write(0, 230e8, expiry);
+        vm.prank(buyer);
+        vm.expectRevert(OptionHouse.NotWriter.selector);
+        house.cancel(id);
+
+        vm.prank(buyer);
+        house.buy(id, type(uint256).max);
+        vm.prank(writer);
+        vm.expectRevert(OptionHouse.AlreadySold.selector);
+        house.cancel(id);
     }
 
     function test_settles_at_the_expiry_round_not_at_call_time() public {
@@ -165,7 +214,7 @@ contract OptionHouseTest is Test {
         (uint256 due,) = house.quote(id);
         uint256 before = usdg.balanceOf(writer);
         vm.prank(buyer);
-        house.buy(id);
+        house.buy(id, type(uint256).max);
         assertEq(usdg.balanceOf(writer) - before, due, "the writer keeps the whole marked premium");
     }
 

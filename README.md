@@ -349,7 +349,7 @@ dollars a day across sixty-two addresses. Real, useful, and small.
 
 ```
 scripts/     measurements, plain Node, no dependencies
-contracts/   the libraries, the option house and the vaults, Foundry, 75 tests
+contracts/   the libraries, the option house and the vaults, Foundry, 80 tests
 ```
 
 Addresses in `scripts/tokens.mjs` come from the on-chain registry. Dozens of

@@ -108,7 +108,7 @@ contract ShortTenorTest is Test {
 
         (uint256 premium,) = house.quote(id);
         uint256 before = usdg.balanceOf(address(vault));
-        vm.prank(buyer); house.buy(id);
+        vm.prank(buyer); house.buy(id, type(uint256).max);
         assertEq(usdg.balanceOf(address(vault)) - before, premium, "the vault was paid");
 
         // An hour later, spot a little higher than the strike.

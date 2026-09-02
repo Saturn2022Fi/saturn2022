@@ -27,6 +27,12 @@ import {IAggregator} from "./FeedVol.sol";
 /// even while calls are open. Withdrawing the underlying is only possible from
 /// what is not currently escrowed, because an escrowed share belongs to a
 /// written option until it settles.
+///
+/// A vault share is a fraction of the pool, not a promise of one stock share.
+/// When a call settles in the money the pool comes back lighter, and that loss
+/// is everyone's in proportion: shares are minted and redeemed against what
+/// the vault holds, so a depositor cannot dodge it by leaving first or inherit
+/// it by leaving last.
 contract CoveredCallVault is ERC20 {
     using SafeERC20 for IERC20;
 
@@ -55,6 +61,7 @@ contract CoveredCallVault is ERC20 {
     event Wrote(uint256 indexed seriesId, uint96 strike, uint40 expiry);
     event Collected(uint256 premium, uint256 perShare);
     event Claimed(address indexed who, uint256 amount);
+    event Cancelled(uint256 indexed seriesId);
 
     error NotKeeper();
     error NotOwner();
@@ -83,29 +90,44 @@ contract CoveredCallVault is ERC20 {
 
     // --- depositors -------------------------------------------------------
 
-    /// Put shares in, take vault shares out, one for one with what arrived.
-    function deposit(uint256 amount) external {
+    /// Put stock in, take vault shares out, priced against what the pool holds.
+    /// The first depositor gets one share per stock share; after that a deposit
+    /// buys the same fraction of the pool it adds to it.
+    function deposit(uint256 amount) external returns (uint256 shares) {
         if (amount == 0) revert NothingToDeposit();
         _settle(msg.sender);
+        uint256 supply = totalSupply();
+        uint256 pool = assets();
         uint256 before = stock.balanceOf(address(this));
         stock.safeTransferFrom(msg.sender, address(this), amount);
         uint256 received = stock.balanceOf(address(this)) - before;
-        _mint(msg.sender, received);
-        emit Deposited(msg.sender, received);
+        shares = (supply == 0 || pool == 0) ? received : (received * supply) / pool;
+        _mint(msg.sender, shares);
+        emit Deposited(msg.sender, shares);
     }
 
-    /// Take shares back out of what is not escrowed in a live option.
-    function withdraw(uint256 amount) external {
+    /// Burn vault shares, take their fraction of the pool back out of what is
+    /// not escrowed in a live option.
+    function withdraw(uint256 shares) external returns (uint256 stockOut) {
         _settle(msg.sender);
-        if (amount > free()) revert NotEnoughFree();
-        _burn(msg.sender, amount);
-        stock.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        stockOut = (shares * assets()) / totalSupply();
+        if (stockOut > free()) revert NotEnoughFree();
+        _burn(msg.sender, shares);
+        stock.safeTransfer(msg.sender, stockOut);
+        emit Withdrawn(msg.sender, stockOut);
     }
 
     /// Stock sitting here rather than escrowed against a written call.
     function free() public view returns (uint256) {
         return stock.balanceOf(address(this));
+    }
+
+    /// Everything the vault's shares are a claim on: the stock here plus one
+    /// share per open call, which comes back whole or, in the money, lighter.
+    /// Until an expired call is settled it still counts as whole, so settle
+    /// before pricing a large exit.
+    function assets() public view returns (uint256) {
+        return free() + openSeries.length * 1e18;
     }
 
     /// Premiums owed to `who`, in USDG.
@@ -157,9 +179,23 @@ contract CoveredCallVault is ERC20 {
     function settle(uint256 index, uint80 roundId) external {
         uint256 id = openSeries[index];
         house.settle(id, roundId);
+        _drop(index);
+        _collect();
+    }
+
+    /// Take back a call nobody has bought. The share returns to the pool at
+    /// once instead of sitting on the board until expiry.
+    function cancel(uint256 index) external {
+        if (msg.sender != keeper) revert NotKeeper();
+        uint256 id = openSeries[index];
+        house.cancel(id);
+        _drop(index);
+        emit Cancelled(id);
+    }
+
+    function _drop(uint256 index) private {
         openSeries[index] = openSeries[openSeries.length - 1];
         openSeries.pop();
-        _collect();
     }
 
     /// Move any USDG that has arrived into the per-share running total. Anyone
