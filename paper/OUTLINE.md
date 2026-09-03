@@ -65,7 +65,7 @@ Over the same rounds:
 
 An option can then be priced in the transaction that buys it, with no quoter.
 The market described in `contracts/` does this on seventeen assets, one of them a
-company with no listed options anywhere because it is private.
+company with the shortest price history in the set.
 
 ## Honest limits
 

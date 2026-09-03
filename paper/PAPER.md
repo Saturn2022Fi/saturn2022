@@ -73,7 +73,7 @@ Three readings of that table.
 
 **The obvious estimator fails, and in one direction.** Interval weighting overstates volatility on every feed, by 1.5x at best and 5.4x at worst. The mechanism is the sampling itself: a deviation feed publishes when the price moves, so short intervals and large squared returns arrive together, and weighting by the interval doubles down on the coincidence. Anyone treating a deviation feed's rounds as ordinary irregular samples inherits this error.
 
-**One worked example.** SpaceX, the one asset in the set with no listed options anywhere because the company is private. Its feed updated on average every 38 minutes of active time over the window. That spacing alone, through the threshold and the calibration constant, says 70% a year. Its own price history over the same rounds says 69%. The ratio is 1.003. Nobody told the contract that SpaceX is volatile. It counted timestamps.
+**One worked example.** SpaceX, the asset in the set with the shortest price history and the least of it to lean on. Its feed updated on average every 38 minutes of active time over the window. That spacing alone, through the threshold and the calibration constant, says 70% a year. Its own price history over the same rounds says 69%. The ratio is 1.003. Nobody told the contract that SpaceX is volatile. It counted timestamps.
 
 ### The window has to be long
 
@@ -100,7 +100,7 @@ Seventeen markets, each with its own measured threshold. Writing a call escrows 
 
 The cost of reading volatility this way is small and lands only where it should. The 290-round timestamp walk costs 1,465,419 gas, about nine cents at the measured median fee, and the Black-Scholes arithmetic costs 45,747 gas. A quote through OptionLens is a view and free. The walk is paid only inside the transaction that buys.
 
-One of the seventeen assets is SpaceX, which is private, so its options exist in this contract and on no exchange in the world. At the calibrated full-window volatility, a 30-day call struck 10% above spot prices at $5.78 to $5.82. The first such option sold live was priced at $2.02 by an earlier lens using a short uncalibrated window, and the distance between those two numbers is the window study of the previous section expressed in dollars.
+One of the seventeen assets is SpaceX, listed since June 2026 and the newest price history in the set. At the calibrated full-window volatility, a 30-day call struck 10% above spot prices at $5.78 to $5.82. The first such option sold live was priced at $2.02 by an earlier lens using a short uncalibrated window, and the distance between those two numbers is the window study of the previous section expressed in dollars.
 
 ## Honest limits
 

@@ -27,8 +27,8 @@ Nobody told the contract that SpaceX is volatile. It counted timestamps.
 An option can be priced in the transaction that buys it, with nobody quoting.
 The second half of this repository is that market: seventeen real stocks, live
 on Robinhood Chain mainnet, no quoter and no pricing server. One of the
-seventeen is SpaceX, which is private, so its options exist here and on no
-exchange in the world.
+seventeen is SpaceX, the newest listing in the set and the one with the least
+price history to lean on.
 
 Every number below was measured against a public endpoint, and the script that
 produced it is in this repository. Disagree by running it.
@@ -151,9 +151,8 @@ USDG -> SPCX   29     $30,147
 ```
 
 Two things stand out. Sixty-two takers, so this is a rail that programs use
-rather than people. And half the money through it is SpaceX, the one private
-company on the chain and the only asset here that cannot be bought anywhere
-else.
+rather than people. And half the money through it is SpaceX, the newest
+listing on the chain and the one with the shortest history behind its feed.
 
 Five basis points is worth holding next to the 1% tier the stock pools charge.
 Thin pools are not the constraint they look like, if you are willing to settle
@@ -264,8 +263,8 @@ cast call 0x87A7593659E08b02098d4c3D8F3c236D0414dA81 \
   --rpc-url https://rpc.mainnet.chain.robinhood.com
 ```
 
-That answers with the price of a 30-day call on SpaceX, an option that exists on
-no exchange anywhere, because SpaceX is private.
+That answers with the price of a 30-day call on SpaceX, computed from the
+feed's update cadence and nothing else.
 
 ### Is the volatility any good
 
