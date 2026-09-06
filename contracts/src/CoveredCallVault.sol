@@ -61,6 +61,7 @@ contract CoveredCallVault is ERC20 {
     event Wrote(uint256 indexed seriesId, uint96 strike, uint40 expiry);
     event Collected(uint256 premium, uint256 perShare);
     event Claimed(address indexed who, uint256 amount);
+    event FeePaid(address indexed treasury, uint256 amount);
     event Cancelled(uint256 indexed seriesId);
 
     error NotKeeper();
@@ -70,9 +71,17 @@ contract CoveredCallVault is ERC20 {
     error TooManyOpen();
     error PremiumTooThin();
 
-    constructor(OptionHouse house_, uint32 marketId_, string memory name_, string memory symbol_)
+    /// A tenth of every premium leaves the pool for the treasury, where anyone
+    /// staking SATURN can take a share of it. Fixed at construction and public,
+    /// so a depositor knows the split before they put a share in and no key can
+    /// change it afterwards.
+    uint16 public constant FEE_BPS = 1_000;
+    address public immutable treasury;
+
+    constructor(OptionHouse house_, uint32 marketId_, address treasury_, string memory name_, string memory symbol_)
         ERC20(name_, symbol_)
     {
+        treasury = treasury_;
         house = house_;
         marketId = marketId_;
         (address stock_, address feed_,,) = house_.markets(marketId_);
@@ -211,7 +220,18 @@ contract CoveredCallVault is ERC20 {
         uint256 unclaimed = _unclaimed;
         if (held <= unclaimed) return;
         uint256 fresh = held - unclaimed;
-        _unclaimed = held;
+
+        // The fee leaves before anything is credited, so what a depositor is
+        // shown as owed is what they can actually withdraw. A treasury that was
+        // never set means the whole premium stays with the pool.
+        uint256 fee = treasury == address(0) ? 0 : (fresh * FEE_BPS) / 10_000;
+        if (fee != 0) {
+            fresh -= fee;
+            usdg.safeTransfer(treasury, fee);
+            emit FeePaid(treasury, fee);
+        }
+        _unclaimed = held - fee;
+
         uint256 perShare = (fresh * PRECISION) / supply;
         accPerShare += perShare;
         emit Collected(fresh, perShare);

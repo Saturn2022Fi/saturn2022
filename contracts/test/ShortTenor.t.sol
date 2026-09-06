@@ -44,7 +44,7 @@ contract ShortTenorTest is Test {
         OptionHouse.Market[] memory ms = new OptionHouse.Market[](1);
         ms[0] = OptionHouse.Market(address(spcx), address(feed), 0.005395e18, 0);
         house = new OptionHouse(address(usdg), ms);
-        vault = new CoveredCallVault(house, 0, "Vault SPCX", "vSPCX");
+        vault = new CoveredCallVault(house, 0, address(0), "Vault SPCX", "vSPCX");
 
         spcx.mintTo(lp, 5e18);
         usdg.mintTo(buyer, 1_000_000e18);

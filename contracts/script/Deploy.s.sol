@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "forge-std/Script.sol";
 import {OptionHouse} from "../src/OptionHouse.sol";
 import {CoveredCallVault} from "../src/CoveredCallVault.sol";
+import {Treasury} from "../src/Treasury.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// The house with the same seventeen listings the live one carries, then a
 /// vault per market. Two keys: the house is listed by the deployer key, the
@@ -13,6 +15,7 @@ import {CoveredCallVault} from "../src/CoveredCallVault.sol";
 ///     --rpc-url https://rpc.mainnet.chain.robinhood.com --broadcast --slow
 contract Deploy is Script {
     address constant USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
+    address constant SATURN = 0x3EB06FF05C832BC403AC9aFe6c0a9953588B0d9b;
     uint16 constant MARKUP = 3000;
 
     function markets() internal pure returns (OptionHouse.Market[] memory ms) {
@@ -65,8 +68,10 @@ contract Deploy is Script {
         console2.log("house", address(house));
 
         vm.startBroadcast(vm.envUint("VAULT_KEY"));
+        Treasury treasury = new Treasury(IERC20(SATURN), IERC20(USDG));
+        console2.log("treasury", address(treasury));
         for (uint256 i = 0; i < 17; i++) {
-            CoveredCallVault v = new CoveredCallVault(house, uint32(i), n[i], s[i]);
+            CoveredCallVault v = new CoveredCallVault(house, uint32(i), address(treasury), n[i], s[i]);
             console2.log(s[i], address(v));
         }
         vm.stopBroadcast();

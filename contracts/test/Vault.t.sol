@@ -30,7 +30,7 @@ contract VaultTest is Test {
         OptionHouse.Market[] memory ms = new OptionHouse.Market[](1);
         ms[0] = OptionHouse.Market(address(nvda), address(feed), 0.005264e18, 0);
         house = new OptionHouse(address(usdg), ms);
-        vault = new CoveredCallVault(house, 0, "Vault NVDA", "vNVDA");
+        vault = new CoveredCallVault(house, 0, address(0), "Vault NVDA", "vNVDA");
 
         nvda.mintTo(alice, 3e18);
         nvda.mintTo(bob, 1e18);
