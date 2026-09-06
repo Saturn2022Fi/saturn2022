@@ -17,9 +17,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// Balances are conjured with deal() so the run costs nothing, but every
 /// contract, price and code path is the one that will run for real.
 contract LiveForkTest is Test {
-    OptionHouse constant HOUSE = OptionHouse(0x2575218b2A42301E2001fEf989fe514D513F1433);
+    OptionHouse constant HOUSE = OptionHouse(0xD63437251E6844faa4d223b0dC0392793045F883);
     OptionLens constant LENS = OptionLens(0x87A7593659E08b02098d4c3D8F3c236D0414dA81);
-    CoveredCallVault constant VAULT = CoveredCallVault(0xe3F851a97683EB8cCBcc8c74Dc3b62bE55e9D966);
+    CoveredCallVault constant VAULT = CoveredCallVault(0xD9b2CA7B0Edf837e385eA71481fd3E931CA5500F);
 
     IERC20 constant SPCX = IERC20(0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa);
     IERC20 constant USDG = IERC20(0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168);

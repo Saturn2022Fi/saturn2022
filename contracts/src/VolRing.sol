@@ -74,10 +74,26 @@ library VolRing {
             found[n++] = uint32(FeedVol.cap(tPrev - t));
             tPrev = t;
         }
-        s.head = 0;
-        s.count = 0;
-        s.active = 0;
-        for (uint256 k = n; k > 0; k--) push(s, found[k - 1]);   // oldest first, so eviction is in order
+        fill(s, found, n, latest, tLatest);
+    }
+
+    /// Load the ring from `n` capped gaps, newest first, as a walk collects
+    /// them. Pushed oldest first so eviction later runs in order.
+    ///
+    /// Written slot by slot rather than push by push: the counters are summed
+    /// in memory and stored once, and each gap lands in its final slot
+    /// directly, which is what makes a cold registration affordable.
+    function fill(State storage s, uint32[] memory newestFirst, uint256 n, uint80 latest, uint256 tLatest) internal {
+        if (n > N) n = N;
+        uint32 active = 0;
+        for (uint256 k = 0; k < n; k++) {
+            uint32 gap = newestFirst[n - 1 - k];   // oldest first, so eviction later runs in order
+            s.gaps[k] = gap;
+            active += gap;
+        }
+        s.head = uint16(n % N);
+        s.count = uint16(n);
+        s.active = active;
         s.lastRound = latest;
         s.lastT = uint40(tLatest);
     }
@@ -95,7 +111,7 @@ library VolRing {
 
     /// A round's timestamp, or a miss: some proxies revert on a round that
     /// does not exist rather than answering zeros, and both mean the same here.
-    function roundTime(address feed, uint80 id) private view returns (bool ok, uint256 t) {
+    function roundTime(address feed, uint80 id) internal view returns (bool ok, uint256 t) {
         try IAggregator(feed).getRoundData(id) returns (uint80, int256, uint256, uint256 updatedAt, uint80) {
             return (true, updatedAt);
         } catch {

@@ -93,7 +93,7 @@ It did the opposite. With d at the 10th percentile the cross-asset dispersion go
 
 If volatility can be read from a feed the chain already has, an option can be priced inside the transaction that buys it, with no quoter and no pricing server. A market doing exactly that is live on this chain:
 
-    OptionHouse   0x2575218b2A42301E2001fEf989fe514D513F1433
+    OptionHouse   0xD63437251E6844faa4d223b0dC0392793045F883
     OptionLens    0x87A7593659E08b02098d4c3D8F3c236D0414dA81
 
 Seventeen markets, each with its own measured threshold. Writing a call escrows the whole share, so positions are fully collateralized and there is no margin or liquidation machinery; premiums go to writers at purchase; settlement is pinned to the oracle round covering expiry rather than read at call time. Each market carries a public markup, set at 30%, which is what stands between a writer and selling too cheap.
